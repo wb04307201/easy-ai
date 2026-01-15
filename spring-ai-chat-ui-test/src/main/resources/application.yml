@@ -1,7 +1,7 @@
 spring:
   ai:
     zhipuai:
-      api-key: ${ZHIPUAI_API_KEY}
+      api-key: 432156df16b143d0de306258380cba88.MoDsO9pZdQI2MNWh
 #    ollama:
 #      chat:
 #        options:
@@ -11,6 +11,7 @@ spring:
 #          model: qwen3-embedding
 #      base-url: http://localhost:11434
     vectorstore:
+      enabled: false
       chroma:
         client:
           host: http://localhost
@@ -18,6 +19,7 @@ spring:
         collection-name: SpringAiCollection
         initialize-schema: true
     mcp:
+      enabled: true
       client:
         stdio:
           servers-configuration: classpath:mcp-servers.json
