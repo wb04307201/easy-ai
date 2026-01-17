@@ -51,7 +51,7 @@ spring:
 <dependency>
     <groupId>com.github.wb04307201.spring-ai-chat</groupId>
     <artifactId>spring-ai-chat-spring-boot-starter</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
 </dependency>
 ```
 
