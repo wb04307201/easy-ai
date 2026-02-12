@@ -2,6 +2,11 @@ spring:
   ai:
     zhipuai:
       api-key: ${ZHIPUAI_API_KEY}
+      chat:
+        options:
+          model: glm-5
+          thinking:
+            type: enabled
 #    ollama:
 #      chat:
 #        options:
