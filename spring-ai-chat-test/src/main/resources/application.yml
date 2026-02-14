@@ -68,6 +68,8 @@ server:
     max-swallow-size: 2MB
     disable-upload-timeout: false
 
-#logging:
-#  level:
-#    root: DEBUG
+logging:
+  level:
+    org:
+      springframework:
+        ai: DEBUG
