@@ -55,7 +55,7 @@ Introduce dependency:
 </dependency>
 ```
 
-Start the project and visit `http://localhost:8080//easy/ai/chat`
+Start the project and visit `http://localhost:8080/spring/ai/chat`
 ![img.png](img.png)
 
 ## Supporting RAG
@@ -90,32 +90,39 @@ spring:
 Implement the [IDocumentRead.java](spring-ai-chat/src/main/java/cn/wubo/spring/ai/chat/IDocumentRead.java) interface  
 For example [TikaDocumentRead.java](spring-ai-chat-test/src/main/java/cn/wubo/spring/ai/chat/TikaDocumentRead.java)
 
-Restart the project and visit `http://localhost:8080//easy/ai/chat`
+Restart the project and visit `http://localhost:8080/spring/ai/chat`
 ![img_1.png](img_1.png)
 Upload file and knowledge base buttons appear
 
-If you need to modify the RAG template, configure as follows:
+RAG configuration is as follows:
 ```yaml
 spring:
   ai:
     chat:
       ui:
         rag:
-          template: |
-            <query>
-
-            上下文信息如下。
+          similarityThreshold: 0.50   # Similarity threshold, default 0.0
+          top-k: 4                    # top-k, default 4
+          defaultPromptTemplate: |
+            Context information is below.
 
             ---------------------
-            <question_answer_context>
+            {context}
             ---------------------
 
-            如果没有上下文信息，直接回答问题
+            Given the context information and no prior knowledge, answer the query.
 
-            如果有上下文信息，根据上下文信息回答问题。并遵循以下规则：
-            1. 如果答案不在上下文中，则直接说明您不知道。
-            2. 避免使用"根据上下文..."或"提供的信息..."之类的表述。
-            3. 每句话结尾使用"喵~"、”喵内~“等。
+            Follow these rules:
+
+            1. If the answer is not in the context, just say that you don't know.
+            2. Avoid statements like "Based on the context..." or "The provided information...".
+
+            Query: {query}
+
+            Answer:
+          defaultEmptyContextPromptTemplate: |
+            The user query is outside your knowledge base.
+            Politely inform the user that you can't answer it.
 ```
 
 ## Supporting MCP Services
@@ -140,5 +147,5 @@ spring:
 
 [mcp-servers.json](spring-ai-chat-test/src/main/resources/mcp-servers.json)
 
-Restart the project and visit `http://localhost:8080//easy/ai/chat`
+Restart the project and visit `http://localhost:8080/spring/ai/chat`
 ![img_2.png](img_2.png)

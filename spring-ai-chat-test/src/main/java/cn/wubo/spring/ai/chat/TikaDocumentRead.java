@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Component
 public class TikaDocumentRead implements IDocumentRead {
@@ -57,10 +58,10 @@ public class TikaDocumentRead implements IDocumentRead {
     }
 
     @Override
-    public FileInfo get(String Id) {
+    public FileInfo get(String id) {
         return fileInfos
                 .stream()
-                .filter(fileInfo -> fileInfo.getId().equals(Id))
+                .filter(fileInfo -> fileInfo.getId().equals(id))
                 .findAny().orElseThrow(() -> new ChatUiRuntimeException("文件不存在"));
     }
 
@@ -91,5 +92,10 @@ public class TikaDocumentRead implements IDocumentRead {
         } catch (IOException e) {
             throw new ChatUiRuntimeException(e);
         }
+    }
+
+    @Override
+    public void delete(String id) {
+        fileInfos.removeIf(item -> item.getId().equals(id));
     }
 }

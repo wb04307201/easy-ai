@@ -1,7 +1,13 @@
-## chroma
+## redis-stack
 ```shell
 docker run -d --name redis-stack -p 9379:6379 -e REDIS_ARGS="--requirepass 123456" redis/redis-stack:latest
 ```
+
+## Qdrant
+```shell
+docker run -d --name qdrant -p 6333:6333 -p 6334:6334 qdrant/qdrant:latest
+```
+`http://localhost:6333/dashboard`
 
 ```shell
 pip install uv

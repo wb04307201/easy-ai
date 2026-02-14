@@ -1,5 +1,6 @@
 package cn.wubo.spring.ai.chat;
 
+import io.modelcontextprotocol.client.McpClient;
 import jakarta.servlet.http.Part;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -11,6 +12,9 @@ import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
+import org.springframework.ai.rag.generation.augmentation.ContextualQueryAugmenter;
+import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
 import org.springframework.ai.template.st.StTemplateRenderer;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.vectorstore.SearchRequest;
@@ -72,7 +76,9 @@ import java.util.List;
         "org.springframework.ai.vectorstore.qdrant.autoconfigure.QdrantVectorStoreAutoConfiguration",
         "org.springframework.ai.vectorstore.redis.autoconfigure.RedisVectorStoreAutoConfiguration",
         "org.springframework.ai.vectorstore.typesense.autoconfigure.TypesenseVectorStoreAutoConfiguration",
-        "org.springframework.ai.vectorstore.weaviate.autoconfigure.WeaviateVectorStoreAutoConfiguration"
+        "org.springframework.ai.vectorstore.weaviate.autoconfigure.WeaviateVectorStoreAutoConfiguration",
+        "org.springframework.ai.mcp.client.httpclient.autoconfigure.SseHttpClientTransportAutoConfiguration",
+        "org.springframework.ai.mcp.client.httpclient.autoconfigure.StreamableHttpHttpClientTransportAutoConfiguration"
 })
 @EnableConfigurationProperties({ChatUiProperties.class})
 @Slf4j
@@ -111,34 +117,33 @@ public class ChatUiConfiguration {
     @ConditionalOnMissingBean(ToolCallbackProvider.class)
     @ConditionalOnProperty(name = "spring.ai.chat.ui.init", havingValue = "true", matchIfMissing = true)
     @Bean
-    public ChatClient chatClientVectorStore(ChatModel chatModel, VectorStore vectorStore, ChatUiProperties properties) {
+    public ChatClient chatClientVectorStore(ChatModel chatModel, VectorStore vectorStore, ChatUiProperties properties,List<McpClient> mcpClients) {
         ChatClient.Builder builder = ChatClient.builder(chatModel);
         if (properties.getDefaultSystem() != null) builder.defaultSystem(properties.getDefaultSystem());
         MessageWindowChatMemory chatMemory = MessageWindowChatMemory.builder().maxMessages(20).build();
-        PromptTemplate customPromptTemplate = PromptTemplate
-                .builder()
-                .renderer(
-                        StTemplateRenderer
-                                .builder()
-                                .startDelimiterToken('<')
-                                .endDelimiterToken('>')
-                                .build()
-                )
-                .template(properties.getRag().getTemplate())
-                .build();
         builder.defaultAdvisors(
                 MessageChatMemoryAdvisor.builder(chatMemory).build(), // chat-memory advisor
-                QuestionAnswerAdvisor
-                        .builder(vectorStore)
-                        .searchRequest(
-                                SearchRequest
-                                        .builder()
-                                        .similarityThreshold(properties.getRag().getSimilarityThreshold())
-                                        .topK(properties.getRag().getTopK())
-                                        .build()
-                        )
-                        .promptTemplate(customPromptTemplate)
-                        .build(),    // RAG advisor
+                RetrievalAugmentationAdvisor.builder()
+                        .documentRetriever(VectorStoreDocumentRetriever.builder()
+                                .similarityThreshold(properties.getRag().getSimilarityThreshold())
+                                .topK(properties.getRag().getTopK())
+                                .vectorStore(vectorStore)
+                                .build())
+                        .queryAugmenter(
+                                ContextualQueryAugmenter.builder()
+                                .promptTemplate(
+                                        PromptTemplate.builder()
+                                                .template(properties.getRag().getDefaultPromptTemplate())
+                                                .build()
+                                )
+                                .emptyContextPromptTemplate(
+                                        PromptTemplate.builder()
+                                                .template(properties.getRag().getDefaultEmptyContextPromptTemplate())
+                                                .build()
+                                )
+                                .allowEmptyContext(true)
+                                .build())
+                        .build(),  // RAG advisor
                 SimpleLoggerAdvisor.builder().build() // logger advisor
         );
         return builder.build();
@@ -151,30 +156,28 @@ public class ChatUiConfiguration {
         ChatClient.Builder builder = ChatClient.builder(chatModel).defaultToolCallbacks(tools);
         if (properties.getDefaultSystem() != null) builder.defaultSystem(properties.getDefaultSystem());
         MessageWindowChatMemory chatMemory = MessageWindowChatMemory.builder().maxMessages(20).build();
-        PromptTemplate customPromptTemplate = PromptTemplate
-                .builder()
-                .renderer(
-                        StTemplateRenderer
-                                .builder()
-                                .startDelimiterToken('<')
-                                .endDelimiterToken('>')
-                                .build()
-                )
-                .template(properties.getRag().getTemplate())
-                .build();
         builder.defaultAdvisors(
                 MessageChatMemoryAdvisor.builder(chatMemory).build(), // chat-memory advisor
-                QuestionAnswerAdvisor
-                        .builder(vectorStore)
-                        .searchRequest(
-                                SearchRequest
-                                        .builder()
-                                        .similarityThreshold(properties.getRag().getSimilarityThreshold())
-                                        .topK(properties.getRag().getTopK())
-                                        .build()
-                        )
-                        .promptTemplate(customPromptTemplate)
-                        .build(),    // RAG advisor
+                RetrievalAugmentationAdvisor.builder()
+                        .documentRetriever(VectorStoreDocumentRetriever.builder()
+                                .similarityThreshold(properties.getRag().getSimilarityThreshold())
+                                .topK(properties.getRag().getTopK())
+                                .vectorStore(vectorStore)
+                                .build())
+                        .queryAugmenter(ContextualQueryAugmenter.builder()
+                                .promptTemplate(
+                                        PromptTemplate.builder()
+                                                .template(properties.getRag().getDefaultPromptTemplate())
+                                                .build()
+                                )
+                                .emptyContextPromptTemplate(
+                                        PromptTemplate.builder()
+                                                .template(properties.getRag().getDefaultEmptyContextPromptTemplate())
+                                                .build()
+                                )
+                                .allowEmptyContext(true)
+                                .build())
+                        .build(),  // RAG advisor
                 SimpleLoggerAdvisor.builder().build() // logger advisor
         );
         return builder.build();
@@ -220,6 +223,7 @@ public class ChatUiConfiguration {
         builder.DELETE("/spring/ai/chat/knowledge/{id}", request -> {
             String id = request.pathVariable("id");
             vectorStore.delete(documentRead.get(id).getDocumentIds());
+            documentRead.delete(id);
             return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(true);
         });
 
