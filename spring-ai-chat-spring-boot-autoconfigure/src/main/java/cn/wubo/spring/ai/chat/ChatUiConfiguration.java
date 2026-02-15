@@ -1,23 +1,23 @@
 package cn.wubo.spring.ai.chat;
 
-import io.modelcontextprotocol.client.McpClient;
+import io.modelcontextprotocol.client.McpAsyncClient;
+import io.modelcontextprotocol.client.McpSyncClient;
 import jakarta.servlet.http.Part;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
-import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.mcp.AsyncMcpToolCallbackProvider;
+import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
 import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
 import org.springframework.ai.rag.generation.augmentation.ContextualQueryAugmenter;
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
-import org.springframework.ai.template.st.StTemplateRenderer;
 import org.springframework.ai.tool.ToolCallbackProvider;
-import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
@@ -76,34 +76,27 @@ import java.util.List;
         "org.springframework.ai.vectorstore.qdrant.autoconfigure.QdrantVectorStoreAutoConfiguration",
         "org.springframework.ai.vectorstore.redis.autoconfigure.RedisVectorStoreAutoConfiguration",
         "org.springframework.ai.vectorstore.typesense.autoconfigure.TypesenseVectorStoreAutoConfiguration",
-        "org.springframework.ai.vectorstore.weaviate.autoconfigure.WeaviateVectorStoreAutoConfiguration",
-        "org.springframework.ai.mcp.client.httpclient.autoconfigure.SseHttpClientTransportAutoConfiguration",
-        "org.springframework.ai.mcp.client.httpclient.autoconfigure.StreamableHttpHttpClientTransportAutoConfiguration"
+        "org.springframework.ai.vectorstore.weaviate.autoconfigure.WeaviateVectorStoreAutoConfiguration"
 })
 @EnableConfigurationProperties({ChatUiProperties.class})
 @Slf4j
 public class ChatUiConfiguration {
 
-    @ConditionalOnMissingBean({VectorStore.class, ToolCallbackProvider.class})
-    @ConditionalOnProperty(name = "spring.ai.chat.ui.init", havingValue = "true", matchIfMissing = true)
-    @Bean
-    public ChatClient chatClient(ChatModel chatModel, ChatUiProperties properties) {
-        ChatClient.Builder builder = ChatClient.builder(chatModel);
-        if (properties.getDefaultSystem() != null) builder.defaultSystem(properties.getDefaultSystem());
-        MessageWindowChatMemory chatMemory = MessageWindowChatMemory.builder().maxMessages(20).build();
-        builder.defaultAdvisors(
-                MessageChatMemoryAdvisor.builder(chatMemory).build(), // chat-memory advisor
-                new SimpleLoggerAdvisor() // logger advisor
-        );
-        return builder.build();
-    }
-
     @ConditionalOnMissingBean(VectorStore.class)
-    @ConditionalOnBean(ToolCallbackProvider.class)
     @ConditionalOnProperty(name = "spring.ai.chat.ui.init", havingValue = "true", matchIfMissing = true)
     @Bean
-    public ChatClient chatClientToolCallbackProvider(ChatModel chatModel, ToolCallbackProvider tools, ChatUiProperties properties) {
-        ChatClient.Builder builder = ChatClient.builder(chatModel).defaultToolCallbacks(tools);
+    public ChatClient chatClient(ChatModel chatModel, List<McpSyncClient> mcpSyncClients, List<McpAsyncClient> mcpAsyncClients, ChatUiProperties properties) {
+        ChatClient.Builder builder = ChatClient.builder(chatModel);
+        if (!mcpSyncClients.isEmpty()) {
+            builder.defaultToolCallbacks(
+                    SyncMcpToolCallbackProvider.builder().mcpClients(mcpSyncClients).build()
+            );
+        }
+        if (!mcpAsyncClients.isEmpty()) {
+            builder.defaultToolCallbacks(
+                    AsyncMcpToolCallbackProvider.builder().mcpClients(mcpAsyncClients).build()
+            );
+        }
         if (properties.getDefaultSystem() != null) builder.defaultSystem(properties.getDefaultSystem());
         MessageWindowChatMemory chatMemory = MessageWindowChatMemory.builder().maxMessages(20).build();
         builder.defaultAdvisors(
@@ -114,11 +107,20 @@ public class ChatUiConfiguration {
     }
 
     @ConditionalOnBean(VectorStore.class)
-    @ConditionalOnMissingBean(ToolCallbackProvider.class)
     @ConditionalOnProperty(name = "spring.ai.chat.ui.init", havingValue = "true", matchIfMissing = true)
     @Bean
-    public ChatClient chatClientVectorStore(ChatModel chatModel, VectorStore vectorStore, ChatUiProperties properties,List<McpClient> mcpClients) {
+    public ChatClient chatClientVectorStore(ChatModel chatModel, VectorStore vectorStore, List<McpSyncClient> mcpSyncClients, List<McpAsyncClient> mcpAsyncClients, ChatUiProperties properties) {
         ChatClient.Builder builder = ChatClient.builder(chatModel);
+        if (!mcpSyncClients.isEmpty()) {
+            builder.defaultToolCallbacks(
+                    SyncMcpToolCallbackProvider.builder().mcpClients(mcpSyncClients).build()
+            );
+        }
+        if (!mcpAsyncClients.isEmpty()) {
+            builder.defaultToolCallbacks(
+                    AsyncMcpToolCallbackProvider.builder().mcpClients(mcpAsyncClients).build()
+            );
+        }
         if (properties.getDefaultSystem() != null) builder.defaultSystem(properties.getDefaultSystem());
         MessageWindowChatMemory chatMemory = MessageWindowChatMemory.builder().maxMessages(20).build();
         builder.defaultAdvisors(
@@ -131,52 +133,18 @@ public class ChatUiConfiguration {
                                 .build())
                         .queryAugmenter(
                                 ContextualQueryAugmenter.builder()
-                                .promptTemplate(
-                                        PromptTemplate.builder()
-                                                .template(properties.getRag().getDefaultPromptTemplate())
-                                                .build()
-                                )
-                                .emptyContextPromptTemplate(
-                                        PromptTemplate.builder()
-                                                .template(properties.getRag().getDefaultEmptyContextPromptTemplate())
-                                                .build()
-                                )
-                                .allowEmptyContext(true)
-                                .build())
-                        .build(),  // RAG advisor
-                SimpleLoggerAdvisor.builder().build() // logger advisor
-        );
-        return builder.build();
-    }
-
-    @ConditionalOnBean({VectorStore.class, ToolCallbackProvider.class})
-    @ConditionalOnProperty(name = "spring.ai.chat.ui.init", havingValue = "true", matchIfMissing = true)
-    @Bean
-    public ChatClient chatClientVectorStoreToolCallbackProvider(ChatModel chatModel, VectorStore vectorStore, ToolCallbackProvider tools, ChatUiProperties properties) {
-        ChatClient.Builder builder = ChatClient.builder(chatModel).defaultToolCallbacks(tools);
-        if (properties.getDefaultSystem() != null) builder.defaultSystem(properties.getDefaultSystem());
-        MessageWindowChatMemory chatMemory = MessageWindowChatMemory.builder().maxMessages(20).build();
-        builder.defaultAdvisors(
-                MessageChatMemoryAdvisor.builder(chatMemory).build(), // chat-memory advisor
-                RetrievalAugmentationAdvisor.builder()
-                        .documentRetriever(VectorStoreDocumentRetriever.builder()
-                                .similarityThreshold(properties.getRag().getSimilarityThreshold())
-                                .topK(properties.getRag().getTopK())
-                                .vectorStore(vectorStore)
-                                .build())
-                        .queryAugmenter(ContextualQueryAugmenter.builder()
-                                .promptTemplate(
-                                        PromptTemplate.builder()
-                                                .template(properties.getRag().getDefaultPromptTemplate())
-                                                .build()
-                                )
-                                .emptyContextPromptTemplate(
-                                        PromptTemplate.builder()
-                                                .template(properties.getRag().getDefaultEmptyContextPromptTemplate())
-                                                .build()
-                                )
-                                .allowEmptyContext(true)
-                                .build())
+                                        .promptTemplate(
+                                                PromptTemplate.builder()
+                                                        .template(properties.getRag().getDefaultPromptTemplate())
+                                                        .build()
+                                        )
+                                        .emptyContextPromptTemplate(
+                                                PromptTemplate.builder()
+                                                        .template(properties.getRag().getDefaultEmptyContextPromptTemplate())
+                                                        .build()
+                                        )
+                                        .allowEmptyContext(true)
+                                        .build())
                         .build(),  // RAG advisor
                 SimpleLoggerAdvisor.builder().build() // logger advisor
         );

@@ -51,7 +51,7 @@ spring:
 <dependency>
     <groupId>com.github.wb04307201.spring-ai-chat</groupId>
     <artifactId>spring-ai-chat-spring-boot-starter</artifactId>
-    <version>1.1.1</version>
+    <version>1.1.2</version>
 </dependency>
 ```
 
@@ -140,7 +140,6 @@ spring:
   ai:
     mcp:
       client:
-        type: ASYNC
         stdio:
           servers-configuration: classpath:mcp-servers.json
 ```

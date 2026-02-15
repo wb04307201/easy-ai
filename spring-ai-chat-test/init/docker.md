@@ -24,11 +24,15 @@ where npx
       "command": "uvx",
       "args": [
         "mcp-server-time",
-        "--local-timezone=America/New_York"
+        "--local-timezone=Asia/Shanghai"
       ]
     }
   }
 }
+```
+
+```shell
+npx @modelcontextprotocol/inspector uvx mcp-server-time
 ```
 
 ## 操作浏览器
@@ -43,4 +47,22 @@ where npx
     }
   }
 }
+```
+
+## Fetch网页内容抓取
+```json
+{
+  "mcpServers": {
+    "fetch": {
+      "args": [
+        "mcp-server-fetch"
+      ],
+      "command": "uvx"
+    }
+  }
+}
+```
+
+```shell
+npx @modelcontextprotocol/inspector uvx mcp-server-fetch
 ```

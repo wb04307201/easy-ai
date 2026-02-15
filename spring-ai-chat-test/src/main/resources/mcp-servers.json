@@ -1,11 +1,23 @@
 {
   "mcpServers": {
     "time": {
-      "command": "uvx.exe",
+      "command": "uvx",
       "args": [
         "mcp-server-time",
         "--local-timezone=Asia/Shanghai"
       ]
+    },
+    "playwright": {
+      "command": "npx.cmd",
+      "args": [
+        "@playwright/mcp@latest"
+      ]
+    },
+    "fetch": {
+      "args": [
+        "mcp-server-fetch"
+      ],
+      "command": "uvx"
     }
   }
 }
