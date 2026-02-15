@@ -11,23 +11,30 @@ public class ChatUiProperties {
     private Rag rag = new Rag();
 
     @Data
-    public static class Rag{
-        private double similarityThreshold = 0.8;
+    public static class Rag {
+        private double similarityThreshold = 0.0F;
         private int topK = 4;
-        private String template = """
-            <query>
-
-            上下文信息如下。
-
-			---------------------
-			<question_answer_context>
-			---------------------
-			
-			如果没有上下文信息，直接回答问题
-
-			如果有上下文信息，根据上下文信息回答问题。并遵循以下规则：
-			1. 如果答案不在上下文中，则直接说明您不知道。
-			2. 避免使用"根据上下文..."或"提供的信息..."之类的表述。
-            """;
+        private String defaultPromptTemplate = """
+                Context information is below.
+                
+                ---------------------
+                {context}
+                ---------------------
+                
+                Given the context information and no prior knowledge, answer the query.
+                
+                Follow these rules:
+                
+                1. If the answer is not in the context, just say that you don't know.
+                2. Avoid statements like "Based on the context..." or "The provided information...".
+                
+                Query: {query}
+                
+                Answer:
+                """;
+        private String defaultEmptyContextPromptTemplate = """
+                The user query is outside your knowledge base.
+                Politely inform the user that you can't answer it.
+                """;
     }
 }

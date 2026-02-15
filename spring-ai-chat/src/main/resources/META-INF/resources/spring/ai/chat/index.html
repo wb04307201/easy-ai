@@ -46,9 +46,10 @@
         }
 
         .bubble {
-            /*max-width: 400px;*/
+            min-width: 50%;
+            width: auto;
             max-width: 75%;
-            padding: 10px;
+            padding: 20px;
             border-radius: 5px;
             position: relative;
             color: #000;
@@ -445,7 +446,7 @@
     function buildUserMessage(message) {
         let userItem = document.createElement('div');
         userItem.className = 'item item-right';
-        userItem.innerHTML = `<div class="bubble bubble-left">${message}</div><div class="avatar"><img src="/spring/ai/chat/user.png"/></div>`;
+        userItem.innerHTML = `<div class="bubble bubble-left">${marked.parse(message)}</div><div class="avatar"><img src="/spring/ai/chat/user.png"/></div>`;
         mainContent.appendChild(userItem);
         scrollToBottom();
     }

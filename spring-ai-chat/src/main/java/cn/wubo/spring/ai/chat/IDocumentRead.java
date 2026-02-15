@@ -9,7 +9,9 @@ public interface IDocumentRead {
 
     public List<FileInfo> list();
 
-    public FileInfo get(String Id);
+    public FileInfo get(String id);
 
     public List<Document> read(InputStream is, String fileName);
+
+    public void delete(String id);
 }

@@ -51,11 +51,11 @@ spring:
 <dependency>
     <groupId>com.github.wb04307201.spring-ai-chat</groupId>
     <artifactId>spring-ai-chat-spring-boot-starter</artifactId>
-    <version>1.1.1</version>
+    <version>1.1.2</version>
 </dependency>
 ```
 
-启动项目 访问`http://localhost:8080//easy/ai/chat`
+启动项目 访问`http://localhost:8080/spring/ai/chat`
 ![img.png](img.png)
 
 ## 支持RAG
@@ -90,32 +90,39 @@ spring:
 实现[IDocumentRead.java](spring-ai-chat/src/main/java/cn/wubo/spring/ai/chat/IDocumentRead.java)接口  
 例如[TikaDocumentRead.java](spring-ai-chat-test/src/main/java/cn/wubo/spring/ai/chat/TikaDocumentRead.java)
 
-重启项目 访问`http://localhost:8080//easy/ai/chat`
+重启项目 访问`http://localhost:8080/spring/ai/chat`
 ![img_1.png](img_1.png)
 出现上传文件和知识库按钮
 
-如需修改rag模板可以如下配置
+rag配置如下：
 ```yaml
 spring:
   ai:
     chat:
       ui:
         rag:
-          template: |
-            <query>
-
-            上下文信息如下。
+          similarityThreshold: 0.50   # 相似度阈值,默认0.0
+          top-k: 4                    # top-k，默认4
+          defaultPromptTemplate: |
+            Context information is below.
 
             ---------------------
-            <question_answer_context>
+            {context}
             ---------------------
 
-            如果没有上下文信息，直接回答问题
+            Given the context information and no prior knowledge, answer the query.
 
-            如果有上下文信息，根据上下文信息回答问题。并遵循以下规则：
-            1. 如果答案不在上下文中，则直接说明您不知道。
-            2. 避免使用"根据上下文..."或"提供的信息..."之类的表述。
-            3. 每句话结尾使用"喵~"、”喵内~“等。
+            Follow these rules:
+
+            1. If the answer is not in the context, just say that you don't know.
+            2. Avoid statements like "Based on the context..." or "The provided information...".
+
+            Query: {query}
+
+            Answer:
+          defaultEmptyContextPromptTemplate: |
+            The user query is outside your knowledge base.
+            Politely inform the user that you can't answer it.
 ```
 
 ## 支持MCP服务
@@ -133,14 +140,45 @@ spring:
   ai:
     mcp:
       client:
-        type: ASYNC
         stdio:
           servers-configuration: classpath:mcp-servers.json
 ```
 
 [mcp-servers.json](spring-ai-chat-test/src/main/resources/mcp-servers.json)
 
-重启项目 访问`http://localhost:8080//easy/ai/chat`
+重启项目 访问`http://localhost:8080/spring/ai/chat`
 ![img_2.png](img_2.png)
+
+## 递归工具调用顾问
+
+该库提供了一个递归工具调用顾问，它禁用内部工具执行流程，将工具调用循环作为顾问链的一部分来实现：
+
+```java
+@Configuration
+public class ChatConfig {
+    
+    @Bean
+    public RecursiveToolCallAdvisor recursiveToolCallAdvisor(
+            ChatModel chatModel, 
+            FunctionCallbackContext functionCallbackContext) {
+        return new RecursiveToolCallAdvisor(chatModel, functionCallbackContext, 5);
+    }
+}
+```
+
+配置：
+```yaml
+spring:
+  ai:
+    chat:
+      ui:
+        recursive-advisor:
+          enabled: true
+          max-iterations: 5
+          tool-timeout-ms: 30000
+          enable-tool-cache: true
+```
+
+这样可以允许链中的其他顾问拦截工具调用循环。
 
 
